@@ -1,0 +1,34 @@
+# CI for @tawked/better-auth.
+# Runs the checks that need nothing outside this repository, with @tawked/sdk from npm: install,
+# type-check, the build, the built types as an application sees them, and the pack. The full test
+# suite (a real Better Auth signing people in against a local stand-in for the API) runs before
+# every release.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20, 22, 24]
+        better-auth: ['1.7.7', 'latest']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      # @tawked/sdk comes from npm, not from the committed lock.
+      - run: npm install --no-package-lock
+      - if: matrix.better-auth != '1.7.7'
+        run: npm install --no-package-lock --no-save --legacy-peer-deps better-auth@${{ matrix.better-auth }}
+      - run: npx tsc --noEmit
+      - run: npm run build
+      - run: npm run typecheck:dist
+      - run: npm pack --dry-run
